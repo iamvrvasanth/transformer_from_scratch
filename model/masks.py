@@ -7,10 +7,7 @@ Utilities for creating Transformer masks.
 import torch
 
 
-def create_padding_mask(
-    seq,
-    pad_idx=0
-):
+def create_padding_mask(seq, pad_idx=0):
     """
     Creates padding mask.
 
@@ -22,48 +19,52 @@ def create_padding_mask(
         [batch_size, 1, 1, seq_len]
     """
 
-    # Handle a single sequence
+    # Convert single sequence -> batch
     if seq.dim() == 1:
         seq = seq.unsqueeze(0)
 
     mask = (seq != pad_idx).unsqueeze(1).unsqueeze(2)
 
-    return mask
+    return mask.bool()
 
 
-def create_look_ahead_mask(
-    size
-):
+def create_look_ahead_mask(size):
     """
-    Creates causal mask.
+    Creates causal (look-ahead) mask.
 
-    Shape
-
-    (1,1,size,size)
+    Output:
+        [1, 1, size, size]
     """
 
     mask = torch.tril(
-        torch.ones(size, size)
+        torch.ones(
+            (size, size),
+            dtype=torch.bool
+        )
     )
 
     return mask.unsqueeze(0).unsqueeze(0)
 
 
-import torch
-
-def create_target_mask(
-    tgt,
-    pad_idx=0
-):
+def create_target_mask(tgt, pad_idx=0):
     """
     Creates decoder mask.
 
-    Supports:
-        Dataset : [seq_len]
-        Training: [batch_size, seq_len]
+    Combines:
+        Padding Mask
+            AND
+        Look Ahead Mask
+
+    Input:
+        tgt -> [batch_size, seq_len]
+            or
+        tgt -> [seq_len]
+
+    Output:
+        [batch_size, 1, seq_len, seq_len]
     """
 
-    # If a single sequence is passed, convert [L] -> [1, L]
+    # Handle single sequence
     if tgt.dim() == 1:
         tgt = tgt.unsqueeze(0)
 
@@ -78,8 +79,6 @@ def create_target_mask(
         seq_len
     ).to(tgt.device)
 
-    # Make look-ahead mask broadcastable: [1,1,L,L]
-    if look_ahead.dim() == 2:
-        look_ahead = look_ahead.unsqueeze(0).unsqueeze(0)
+    decoder_mask = padding_mask & look_ahead
 
-    return padding_mask & look_ahead
+    return decoder_mask

@@ -21,6 +21,7 @@ from dataset import TranslationDataset
 from model.transformer import Transformer
 from datasets import load_dataset
 from tokenizers import Tokenizer
+from model.masks import create_padding_mask, create_target_mask
 
 
 # ==========================================================
@@ -70,8 +71,23 @@ os.makedirs(
 # ==========================================================
 # Initialize Model
 # ==========================================================
+# 1. Load tokenizers
+# 1. Load tokenizers
+src_tokenizer = Tokenizer.from_file(Config.SRC_TOKENIZER_PATH)
+tgt_tokenizer = Tokenizer.from_file(Config.TGT_TOKENIZER_PATH)
 
-model = Transformer().to(device)
+# 2. Get vocabulary sizes
+src_vocab_size = src_tokenizer.get_vocab_size()
+tgt_vocab_size = tgt_tokenizer.get_vocab_size()
+
+print(f"Source Vocabulary Size: {src_vocab_size}")
+print(f"Target Vocabulary Size: {tgt_vocab_size}")
+
+# 3. Create model
+model = Transformer(
+    src_vocab_size=src_vocab_size,
+    tgt_vocab_size=tgt_vocab_size
+).to(device)
 
 
 # ==========================================================
@@ -248,8 +264,15 @@ def train_one_epoch(
         encoder_input = batch["encoder_input"].to(device)
         decoder_input = batch["decoder_input"].to(device)
 
-        encoder_mask = batch["encoder_mask"].to(device)
-        decoder_mask = batch["decoder_mask"].to(device)
+        encoder_mask = create_padding_mask(
+        encoder_input,
+        Config.PAD_IDX
+        ).to(device)
+
+        decoder_mask = create_target_mask(
+        decoder_input,
+        Config.PAD_IDX
+            ).to(device)
 
         labels = batch["label"].to(device)
 

@@ -44,7 +44,9 @@ from model.decoder import Decoder
 
 class Transformer(nn.Module):
 
-    def __init__(self):
+    def __init__(self,
+        src_vocab_size,
+        tgt_vocab_size):
 
         super().__init__()
 
@@ -52,7 +54,7 @@ class Transformer(nn.Module):
         # Source Embedding
         # -----------------------------
         self.src_embedding = InputEmbedding(
-            Config.SRC_VOCAB_SIZE,
+            src_vocab_size,
             Config.D_MODEL
         )
 
@@ -60,7 +62,7 @@ class Transformer(nn.Module):
         # Target Embedding
         # -----------------------------
         self.tgt_embedding = InputEmbedding(
-            Config.TGT_VOCAB_SIZE,
+            tgt_vocab_size,
             Config.D_MODEL
         )
 
@@ -99,8 +101,8 @@ class Transformer(nn.Module):
         # Final Output Layer
         # -----------------------------
         self.output_layer = nn.Linear(
-            Config.D_MODEL,
-            Config.TGT_VOCAB_SIZE
+             Config.D_MODEL,
+            tgt_vocab_size
         )
 
     # ----------------------------------------------------
