@@ -534,7 +534,7 @@ def main():
     tgt_lang="fr",
     max_seq_len=Config.MAX_SEQ_LEN,
     pad_idx=Config.PAD_IDX,
-    bos_idx=Config.SOS_IDX,
+    bos_idx=Config.BOS_IDX,
     eos_idx=Config.EOS_IDX
     )
 
@@ -546,7 +546,7 @@ def main():
     tgt_lang="fr",
     max_seq_len=Config.MAX_SEQ_LEN,
     pad_idx=Config.PAD_IDX,
-    bos_idx=Config.SOS_IDX,
+    bos_idx=Config.BOS_IDX,
     eos_idx=Config.EOS_IDX
     )
     train_loader = DataLoader(
