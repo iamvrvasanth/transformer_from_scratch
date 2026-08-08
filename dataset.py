@@ -49,10 +49,12 @@ class TranslationDataset(Dataset):
 
     def __getitem__(self, index):
 
-        sample = self.dataset[index]
+        sample = self.dataset[idx]
 
-        src_text = sample[self.src_lang]
-        tgt_text = sample[self.tgt_lang]
+        translation = sample["translation"]
+
+        src_text = translation[self.src_lang]
+        tgt_text = translation[self.tgt_lang]
 
         # -----------------------------
         # Tokenize
