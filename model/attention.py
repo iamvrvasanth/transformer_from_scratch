@@ -14,25 +14,29 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, d_model: int, num_heads: int, dropout: float):
         super().__init__()
 
-        assert d_model % num_heads == 0
+        assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
 
         self.d_model = d_model
         self.num_heads = num_heads
         self.head_dim = d_model // num_heads
 
+        # Linear projections
         self.W_q = nn.Linear(d_model, d_model)
         self.W_k = nn.Linear(d_model, d_model)
         self.W_v = nn.Linear(d_model, d_model)
 
+        # Output projection
         self.W_o = nn.Linear(d_model, d_model)
 
         self.dropout = nn.Dropout(dropout)
 
     def split_heads(self, x):
         """
-        (B, L, D)
-            ↓
-        (B, H, L, Dh)
+        Input:
+            (batch_size, seq_len, d_model)
+
+        Output:
+            (batch_size, num_heads, seq_len, head_dim)
         """
 
         batch_size, seq_len, _ = x.shape
@@ -48,15 +52,12 @@ class MultiHeadAttention(nn.Module):
 
     def combine_heads(self, x):
         """
-        (B, H, L, Dh)
-            ↓
-        (B, L, D)
-        """
+        Input:
+            (batch_size, num_heads, seq_len, head_dim)
 
-        if x.dim() != 4:
-            raise RuntimeError(
-                f"combine_heads expected 4 dimensions, got {x.shape}"
-            )
+        Output:
+            (batch_size, seq_len, d_model)
+        """
 
         batch_size, num_heads, seq_len, head_dim = x.shape
 
@@ -77,6 +78,10 @@ class MultiHeadAttention(nn.Module):
         V,
         mask=None
     ):
+        """
+        Q, K, V:
+            (batch_size, num_heads, seq_len, head_dim)
+        """
 
         scores = torch.matmul(
             Q,
@@ -85,8 +90,6 @@ class MultiHeadAttention(nn.Module):
 
         scores = scores / math.sqrt(self.head_dim)
 
-        print("Scores Shape :", scores.shape)
-
         if mask is not None:
 
             if mask.dtype != torch.bool:
@@ -94,8 +97,6 @@ class MultiHeadAttention(nn.Module):
 
             while mask.dim() < scores.dim():
                 mask = mask.unsqueeze(1)
-
-            print("Mask After Broadcast :", mask.shape)
 
             scores = scores.masked_fill(
                 ~mask,
@@ -129,24 +130,12 @@ class MultiHeadAttention(nn.Module):
         K = self.W_k(key)
         V = self.W_v(value)
 
-        # Split into heads
+        # Split into multiple heads
         Q = self.split_heads(Q)
         K = self.split_heads(K)
         V = self.split_heads(V)
 
-        print("\n================ MultiHeadAttention ================")
-        print("Q Shape      :", Q.shape)
-        print("K Shape      :", K.shape)
-        print("V Shape      :", V.shape)
-
-        if mask is not None:
-            print("Mask Shape   :", mask.shape)
-            print("Mask Dtype   :", mask.dtype)
-        else:
-            print("Mask         : None")
-
-        print("====================================================")
-
+        # Multi-head attention
         output, attention = self.scaled_dot_product_attention(
             Q,
             K,
@@ -154,11 +143,10 @@ class MultiHeadAttention(nn.Module):
             mask
         )
 
-        print("Attention Shape :", attention.shape)
-        print("Output Shape    :", output.shape)
-
+        # Combine heads
         output = self.combine_heads(output)
 
+        # Final projection
         output = self.W_o(output)
 
         return output, attention
