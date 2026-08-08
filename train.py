@@ -81,6 +81,10 @@ optimizer = torch.optim.AdamW(
     lr=Config.LEARNING_RATE,
     weight_decay=Config.WEIGHT_DECAY
 )
+scheduler = torch.optim.lr_scheduler.LambdaLR(
+    optimizer,
+    lr_lambda=lambda step: 1.0
+)
 
 
 # ==========================================================
