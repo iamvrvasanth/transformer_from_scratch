@@ -46,19 +46,23 @@ def create_look_ahead_mask(
     return mask.unsqueeze(0).unsqueeze(0)
 
 
+import torch
+
 def create_target_mask(
     tgt,
     pad_idx=0
 ):
     """
-    Combines
+    Creates decoder mask.
 
-    Padding Mask
-
-    +
-
-    Look Ahead Mask
+    Supports:
+        Dataset : [seq_len]
+        Training: [batch_size, seq_len]
     """
+
+    # If a single sequence is passed, convert [L] -> [1, L]
+    if tgt.dim() == 1:
+        tgt = tgt.unsqueeze(0)
 
     padding_mask = create_padding_mask(
         tgt,
@@ -70,5 +74,9 @@ def create_target_mask(
     look_ahead = create_look_ahead_mask(
         seq_len
     ).to(tgt.device)
+
+    # Make look-ahead mask broadcastable: [1,1,L,L]
+    if look_ahead.dim() == 2:
+        look_ahead = look_ahead.unsqueeze(0).unsqueeze(0)
 
     return padding_mask & look_ahead
