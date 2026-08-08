@@ -495,23 +495,48 @@ def main():
     # Replace these placeholders with actual dataset loading
     # ------------------------------------------------------
 
-    train_dataset = ...
-    val_dataset = ...
+    print("Loading OPUS Books dataset...")
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=Config.BATCH_SIZE,
-        shuffle=True,
-        num_workers=2,
-        pin_memory=(device.type == "cuda")
+    raw_dataset = load_dataset(
+    "opus_books",
+    "en-fr",
+    split="train"
     )
 
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=Config.BATCH_SIZE,
-        shuffle=False,
-        num_workers=2,
-        pin_memory=(device.type == "cuda")
+    print("Total samples:", len(raw_dataset))
+
+    split = raw_dataset.train_test_split(
+    test_size=0.1,
+    seed=42
+    )
+
+    train_raw = split["train"]
+    val_raw = split["test"]
+
+    print("Train:", len(train_raw))
+    print("Validation:", len(val_raw))
+    train_dataset = TranslationDataset(
+    dataset=train_raw,
+    src_tokenizer=src_tokenizer,
+    tgt_tokenizer=tgt_tokenizer,
+    src_lang="en",
+    tgt_lang="fr",
+    max_seq_len=Config.MAX_SEQ_LEN,
+    pad_idx=Config.PAD_IDX,
+    bos_idx=Config.SOS_IDX,
+    eos_idx=Config.EOS_IDX
+    )
+
+    val_dataset = TranslationDataset(
+    dataset=val_raw,
+    src_tokenizer=src_tokenizer,
+    tgt_tokenizer=tgt_tokenizer,
+    src_lang="en",
+    tgt_lang="fr",
+    max_seq_len=Config.MAX_SEQ_LEN,
+    pad_idx=Config.PAD_IDX,
+    bos_idx=Config.SOS_IDX,
+    eos_idx=Config.EOS_IDX
     )
 
     # ------------------------------------------------------
