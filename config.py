@@ -87,7 +87,7 @@ class Config:
     # ==========================================================
 
     SEED = 42
- """
+"""
 config.py
 
 This file contains all hyperparameters and project configurations.
