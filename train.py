@@ -19,6 +19,8 @@ from tqdm import tqdm
 from config import Config
 from dataset import TranslationDataset
 from model.transformer import Transformer
+from datasets import load_dataset
+from tokenizers import Tokenizer
 
 
 # ==========================================================
@@ -515,6 +517,15 @@ def main():
 
     print("Train:", len(train_raw))
     print("Validation:", len(val_raw))
+    print("Loading tokenizers...")
+
+    src_tokenizer = Tokenizer.from_file(
+    Config.SRC_TOKENIZER_PATH
+    )
+
+    tgt_tokenizer = Tokenizer.from_file(
+    Config.TGT_TOKENIZER_PATH
+    )
     train_dataset = TranslationDataset(
     dataset=train_raw,
     src_tokenizer=src_tokenizer,
@@ -537,6 +548,21 @@ def main():
     pad_idx=Config.PAD_IDX,
     bos_idx=Config.SOS_IDX,
     eos_idx=Config.EOS_IDX
+    )
+    train_loader = DataLoader(
+    train_dataset,
+    batch_size=Config.BATCH_SIZE,
+    shuffle=True,
+    num_workers=2,
+    pin_memory=(device.type == "cuda")
+    )
+
+    val_loader = DataLoader(
+    val_dataset,
+    batch_size=Config.BATCH_SIZE,
+    shuffle=False,
+    num_workers=2,
+    pin_memory=(device.type == "cuda")
     )
 
     # ------------------------------------------------------
