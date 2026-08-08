@@ -15,13 +15,16 @@ def create_padding_mask(
     Creates padding mask.
 
     Input:
-
-    (batch_size, seq_len)
+        Dataset : [seq_len]
+        Training: [batch_size, seq_len]
 
     Output:
-
-    (batch_size,1,1,seq_len)
+        [batch_size, 1, 1, seq_len]
     """
+
+    # Handle a single sequence
+    if seq.dim() == 1:
+        seq = seq.unsqueeze(0)
 
     mask = (seq != pad_idx).unsqueeze(1).unsqueeze(2)
 
