@@ -76,14 +76,10 @@ model = Transformer().to(device)
 # Optimizer
 # ==========================================================
 
-torch.optim.lr_scheduler.LambdaLR(
-
+optimizer = torch.optim.AdamW(
     model.parameters(),
-
     lr=Config.LEARNING_RATE,
-
     weight_decay=Config.WEIGHT_DECAY
-
 )
 
 
