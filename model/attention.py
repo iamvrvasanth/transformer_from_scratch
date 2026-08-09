@@ -31,42 +31,14 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def split_heads(self, x):
-        """
-        Input:
-            (batch_size, seq_len, d_model)
-
-        Output:
-            (batch_size, num_heads, seq_len, head_dim)
-        """
         batch_size, seq_len, _ = x.shape
-
-        x = x.view(
-            batch_size,
-            seq_len,
-            self.num_heads,
-            self.head_dim
-        )
-
+        x = x.view(batch_size, seq_len, self.num_heads, self.head_dim)
         return x.transpose(1, 2)
 
     def combine_heads(self, x):
-        """
-        Input:
-            (batch_size, num_heads, seq_len, head_dim)
-
-        Output:
-            (batch_size, seq_len, d_model)
-        """
         batch_size, num_heads, seq_len, head_dim = x.shape
-
         x = x.transpose(1, 2).contiguous()
-
-        x = x.view(
-            batch_size,
-            seq_len,
-            num_heads * head_dim
-        )
-
+        x = x.view(batch_size, seq_len, num_heads * head_dim)
         return x
 
     def scaled_dot_product_attention(
@@ -76,10 +48,11 @@ class MultiHeadAttention(nn.Module):
         V,
         mask=None
     ):
-        """
-        Q, K, V:
-            (batch_size, num_heads, seq_len, head_dim)
-        """
+        print("Q:", Q.shape)
+        print("K:", K.shape)
+        print("V:", V.shape)
+        print("Mask:", mask.shape if mask is not None else None)
+
         scores = torch.matmul(
             Q,
             K.transpose(-2, -1)
@@ -90,9 +63,6 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             mask = mask.bool()
 
-            # -----------------------------------
-            # Correct mask dimensions
-            # -----------------------------------
             if mask.dim() == 2:
                 mask = mask[:, None, None, :]
             elif mask.dim() == 3:
@@ -102,21 +72,19 @@ class MultiHeadAttention(nn.Module):
                     f"Invalid mask shape: {mask.shape}"
                 )
             
-            # --- DEBUG PRINTS ---
-            print("Q:", Q.shape)
             print("Scores:", scores.shape)
-            print("Mask:", mask.shape)
-            # --------------------
 
             scores = scores.masked_fill(
                 ~mask,
                 float("-inf")
             )
+            print("Mask OK")
 
         attention = torch.softmax(
             scores,
             dim=-1
         )
+        print("Softmax OK")
 
         attention = self.dropout(attention)
 
@@ -124,6 +92,8 @@ class MultiHeadAttention(nn.Module):
             attention,
             V
         )
+        
+        print("Matmul OK", output.shape)
 
         return output, attention
 
