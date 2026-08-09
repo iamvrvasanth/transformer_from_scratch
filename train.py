@@ -261,12 +261,23 @@ def train_one_epoch(
         # ---------------------------------------------
         # Move Batch to Device
         # ---------------------------------------------
+        print("\n========== VALIDATION BATCH ==========")
+        print(batch.keys())
+    
+        for key, value in batch.items():
+            if torch.is_tensor(value):
+                print(f"{key}: {value.shape}")
+            else:
+                print(f"{key}: {type(value)}")
+    
+        print("======================================")
+    
         encoder_input = batch["encoder_input"].to(device)
         decoder_input = batch["decoder_input"].to(device)
-
+    
         encoder_mask = batch["encoder_mask"].to(device)
         decoder_mask = batch["decoder_mask"].to(device)
-
+    
         labels = batch["label"].to(device)
 
         # ---------------------------------------------
