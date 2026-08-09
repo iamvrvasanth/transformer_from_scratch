@@ -49,7 +49,6 @@ class TranslationDataset(Dataset):
     def __getitem__(self, idx):
 
         sample = self.dataset[idx]
-
         translation = sample["translation"]
 
         src_text = translation[self.src_lang]
@@ -58,13 +57,8 @@ class TranslationDataset(Dataset):
         # -----------------------------------
         # Tokenize
         # -----------------------------------
-        src_tokens = self.src_tokenizer.encode(
-            src_text
-        ).ids
-
-        tgt_tokens = self.tgt_tokenizer.encode(
-            tgt_text
-        ).ids
+        src_tokens = self.src_tokenizer.encode(src_text).ids
+        tgt_tokens = self.tgt_tokenizer.encode(tgt_text).ids
 
         # -----------------------------------
         # Encoder Input
@@ -104,35 +98,16 @@ class TranslationDataset(Dataset):
         # -----------------------------------
         # Pad
         # -----------------------------------
-        encoder_input += [
-            self.pad_idx
-        ] * (self.max_seq_len - len(encoder_input))
-
-        decoder_input += [
-            self.pad_idx
-        ] * (self.max_seq_len - len(decoder_input))
-
-        label += [
-            self.pad_idx
-        ] * (self.max_seq_len - len(label))
+        encoder_input += [self.pad_idx] * (self.max_seq_len - len(encoder_input))
+        decoder_input += [self.pad_idx] * (self.max_seq_len - len(decoder_input))
+        label += [self.pad_idx] * (self.max_seq_len - len(label))
 
         # -----------------------------------
         # Convert to Tensor
         # -----------------------------------
-        encoder_input = torch.tensor(
-            encoder_input,
-            dtype=torch.long
-        )
-
-        decoder_input = torch.tensor(
-            decoder_input,
-            dtype=torch.long
-        )
-
-        label = torch.tensor(
-            label,
-            dtype=torch.long
-        )
+        encoder_input = torch.tensor(encoder_input, dtype=torch.long)
+        decoder_input = torch.tensor(decoder_input, dtype=torch.long)
+        label = torch.tensor(label, dtype=torch.long)
 
         # -----------------------------------
         # Create Masks
@@ -147,12 +122,18 @@ class TranslationDataset(Dataset):
             self.pad_idx
         )
 
+        # -----------------------------------
+        # Return Dictionary
+        # -----------------------------------
         return {
             "encoder_input": encoder_input,
             "decoder_input": decoder_input,
+            
             "encoder_mask": encoder_mask,
             "decoder_mask": decoder_mask,
+            
             "label": label,
+            
             "src_text": src_text,
             "tgt_text": tgt_text
         }
