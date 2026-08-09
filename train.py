@@ -310,10 +310,12 @@ def main():
         tgt_vocab_size=tgt_vocab_size
     ).to(device)
 
-    # Multi GPU setup
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs")
-        model = torch.nn.DataParallel(model)
+    # ------------------------------------------------------
+    # Multi GPU setup - DISABLED TEMPORARILY FOR DEBUGGING
+    # ------------------------------------------------------
+    # if torch.cuda.device_count() > 1:
+    #     print(f"Using {torch.cuda.device_count()} GPUs")
+    #     model = torch.nn.DataParallel(model)
 
     # ------------------------------------------------------
     # 4. Initialize Optimizer, Criterion, and Scaler
@@ -366,7 +368,6 @@ def main():
         eos_idx=Config.EOS_IDX
     )
 
-    # NUM_WORKERS SET TO 0 HERE
     train_loader = DataLoader(
         train_dataset,
         batch_size=Config.BATCH_SIZE,
