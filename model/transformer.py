@@ -3,32 +3,6 @@ transformer.py
 
 Complete Transformer Model
 Author: Transformer From Scratch
-
-Architecture:
-
-Source Sentence
-      │
-Embedding
-      │
-Positional Encoding
-      │
-Encoder
-      │
-Encoder Output
-      │
-──────────────────────────────
-      │
-Target Sentence
-      │
-Embedding
-      │
-Positional Encoding
-      │
-Decoder
-      │
-Linear Layer
-      │
-Vocabulary Probability
 """
 
 import torch
@@ -110,7 +84,6 @@ class Transformer(nn.Module):
     def encode(self, src, src_mask=None):
 
         src = self.src_embedding(src)
-
         src = self.positional_encoding(src)
 
         encoder_output = self.encoder(
@@ -131,7 +104,6 @@ class Transformer(nn.Module):
     ):
 
         tgt = self.tgt_embedding(tgt)
-
         tgt = self.positional_encoding(tgt)
 
         decoder_output = self.decoder(
@@ -146,7 +118,6 @@ class Transformer(nn.Module):
     # ----------------------------------------------------
 
     def project(self, x):
-
         return self.output_layer(x)
 
     # ----------------------------------------------------
@@ -159,16 +130,12 @@ class Transformer(nn.Module):
         tgt_mask=None
     ):
 
-        # --- DEBUG BLOCK ---
-        print("Transformer src_mask:", src_mask.shape if src_mask is not None else None)
-        import sys
-        sys.exit()
-        # -------------------
-
+        print("Before encode")
         encoder_output = self.encode(
             src,
             src_mask
         )
+        print("After encode")
 
         decoder_output = self.decode(
             tgt,
