@@ -47,6 +47,11 @@ class EncoderLayer(nn.Module):
         x,
         src_mask=None
     ):
+        # --- DEBUG BLOCK ---
+        print("Encoder received mask:", src_mask.shape if src_mask is not None else None)
+        import sys
+        sys.exit()
+        # -------------------
 
         # Residual Block 1
         x = self.residual_connections[0](
