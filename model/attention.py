@@ -20,14 +20,11 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = d_model // num_heads
 
-        # Linear projections
         self.W_q = nn.Linear(d_model, d_model)
         self.W_k = nn.Linear(d_model, d_model)
         self.W_v = nn.Linear(d_model, d_model)
-
-        # Output projection
+        
         self.W_o = nn.Linear(d_model, d_model)
-
         self.dropout = nn.Dropout(dropout)
 
     def split_heads(self, x):
@@ -41,23 +38,8 @@ class MultiHeadAttention(nn.Module):
         x = x.view(batch_size, seq_len, num_heads * head_dim)
         return x
 
-    def scaled_dot_product_attention(
-        self,
-        Q,
-        K,
-        V,
-        mask=None
-    ):
-        print("Q:", Q.shape)
-        print("K:", K.shape)
-        print("V:", V.shape)
-        print("Mask:", mask.shape if mask is not None else None)
-
-        scores = torch.matmul(
-            Q,
-            K.transpose(-2, -1)
-        )
-
+    def scaled_dot_product_attention(self, Q, K, V, mask=None):
+        scores = torch.matmul(Q, K.transpose(-2, -1))
         scores = scores / math.sqrt(self.head_dim)
 
         if mask is not None:
@@ -68,64 +50,27 @@ class MultiHeadAttention(nn.Module):
             elif mask.dim() == 3:
                 mask = mask[:, None, :, :]
             elif mask.dim() != 4:
-                raise ValueError(
-                    f"Invalid mask shape: {mask.shape}"
-                )
-            
-            print("Scores:", scores.shape)
+                raise ValueError(f"Invalid mask shape: {mask.shape}")
 
-            scores = scores.masked_fill(
-                ~mask,
-                float("-inf")
-            )
-            print("Mask OK")
+            scores = scores.masked_fill(~mask, float("-inf"))
 
-        attention = torch.softmax(
-            scores,
-            dim=-1
-        )
-        print("Softmax OK")
-
+        attention = torch.softmax(scores, dim=-1)
         attention = self.dropout(attention)
-
-        output = torch.matmul(
-            attention,
-            V
-        )
         
-        print("Matmul OK", output.shape)
-
+        output = torch.matmul(attention, V)
         return output, attention
 
-    def forward(
-        self,
-        query,
-        key,
-        value,
-        mask=None
-    ):
-        # Linear projections
+    def forward(self, query, key, value, mask=None):
         Q = self.W_q(query)
         K = self.W_k(key)
         V = self.W_v(value)
 
-        # Split into multiple heads
         Q = self.split_heads(Q)
         K = self.split_heads(K)
         V = self.split_heads(V)
 
-        # Multi-head attention
-        output, attention = self.scaled_dot_product_attention(
-            Q,
-            K,
-            V,
-            mask
-        )
-
-        # Combine heads
+        output, attention = self.scaled_dot_product_attention(Q, K, V, mask)
         output = self.combine_heads(output)
-
-        # Final projection
         output = self.W_o(output)
 
         return output, attention
