@@ -21,7 +21,6 @@ from dataset import TranslationDataset
 from model.transformer import Transformer
 from datasets import load_dataset
 from tokenizers import Tokenizer
-from model.masks import create_padding_mask, create_target_mask
 
 
 # ==========================================================
@@ -71,23 +70,16 @@ os.makedirs(
 # ==========================================================
 # Initialize Model
 # ==========================================================
-# 1. Load tokenizers
-# 1. Load tokenizers
-src_tokenizer = Tokenizer.from_file(Config.SRC_TOKENIZER_PATH)
-tgt_tokenizer = Tokenizer.from_file(Config.TGT_TOKENIZER_PATH)
 
-# 2. Get vocabulary sizes
-src_vocab_size = src_tokenizer.get_vocab_size()
-tgt_vocab_size = tgt_tokenizer.get_vocab_size()
+model = Transformer().to(device)
+model = model.to(device)
 
-print(f"Source Vocabulary Size: {src_vocab_size}")
-print(f"Target Vocabulary Size: {tgt_vocab_size}")
-
-# 3. Create model
-model = Transformer(
-    src_vocab_size=src_vocab_size,
-    tgt_vocab_size=tgt_vocab_size
-).to(device)
+# ------------------------------------------
+# Multi GPU
+# ------------------------------------------
+if torch.cuda.device_count() > 1:
+    print(f"Using {torch.cuda.device_count()} GPUs")
+    model = torch.nn.DataParallel(model)
 
 
 # ==========================================================
@@ -122,10 +114,9 @@ criterion = nn.CrossEntropyLoss(
 # Mixed Precision
 # ==========================================================
 
-scaler = torch.cuda.amp.GradScaler(
-
-    enabled=torch.cuda.is_available()
-
+scaler = torch.amp.GradScaler(
+    "cuda",
+    enabled=(device.type == "cuda")
 )
 
 
@@ -165,15 +156,21 @@ def save_checkpoint(
 
     )
 
-    torch.save(
-
-        checkpoint,
-
-        save_path
-
+   model_state = (
+    model.module.state_dict()
+    if isinstance(model, torch.nn.DataParallel)
+    else model.state_dict()
     )
 
-    print(f"\nCheckpoint Saved : {save_path}")
+    torch.save(
+    {
+        "epoch": epoch,
+        "model_state_dict": model_state,
+        "optimizer_state_dict": optimizer.state_dict(),
+        "loss": loss
+    },
+    save_path
+    )
 
 
 # ==========================================================
@@ -214,10 +211,13 @@ def load_checkpoint(
 
     )
 
-    model.load_state_dict(
-
+    if isinstance(model, torch.nn.DataParallel):
+        model.module.load_state_dict(
         checkpoint["model_state_dict"]
-
+    )
+    else:
+        model.load_state_dict(
+        checkpoint["model_state_dict"]
     )
 
     optimizer.load_state_dict(
@@ -261,19 +261,23 @@ def train_one_epoch(
         # ---------------------------------------------
         # Move Batch to Device
         # ---------------------------------------------
+        print("\n========== VALIDATION BATCH ==========")
+        print(batch.keys())
+    
+        for key, value in batch.items():
+            if torch.is_tensor(value):
+                print(f"{key}: {value.shape}")
+            else:
+                print(f"{key}: {type(value)}")
+    
+        print("======================================")
+    
         encoder_input = batch["encoder_input"].to(device)
         decoder_input = batch["decoder_input"].to(device)
-
-        encoder_mask = create_padding_mask(
-        encoder_input,
-        Config.PAD_IDX
-        ).to(device)
-
-        decoder_mask = create_target_mask(
-        decoder_input,
-        Config.PAD_IDX
-            ).to(device)
-
+    
+        encoder_mask = batch["encoder_mask"].to(device)
+        decoder_mask = batch["decoder_mask"].to(device)
+    
         labels = batch["label"].to(device)
 
         # ---------------------------------------------
@@ -284,8 +288,9 @@ def train_one_epoch(
         # ---------------------------------------------
         # Mixed Precision Forward
         # ---------------------------------------------
-        with torch.cuda.amp.autocast(
-            enabled=torch.cuda.is_available()
+       with torch.amp.autocast(
+        device_type=device.type,
+        enabled=(device.type == "cuda")
         ):
 
             outputs = model(
@@ -478,7 +483,12 @@ def save_best_model(
 
             "epoch": epoch,
 
-            "model_state_dict": model.state_dict(),
+            "model_state_dict":
+                (
+                model.module.state_dict()
+                if isinstance(model, torch.nn.DataParallel)
+                else model.state_dict()
+            )
 
             "optimizer_state_dict": optimizer.state_dict(),
 
@@ -587,6 +597,10 @@ def main():
     num_workers=2,
     pin_memory=(device.type == "cuda")
     )
+# Debug validation loader
+    for batch in val_loader:
+    print("Batch Keys:", batch.keys())
+    break
 
     # ------------------------------------------------------
     # Resume Training
