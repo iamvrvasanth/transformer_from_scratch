@@ -109,13 +109,6 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
 
     for batch in progress_bar:
         # ---------------------------------------------
-        # DEBUGGING STEP: Check what DataLoader receives
-        # ---------------------------------------------
-        
-         # Exits the script immediately after printing the keys
-        # ---------------------------------------------
-
-        # ---------------------------------------------
         # Move Batch to Device
         # ---------------------------------------------
         encoder_input = batch["encoder_input"].to(device)
@@ -123,6 +116,13 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
 
         encoder_mask = batch["encoder_mask"].to(device)
         decoder_mask = batch["decoder_mask"].to(device)
+        
+        # --- DEBUG BLOCK ---
+        print("\nBatch encoder_mask:", encoder_mask.shape)
+        print("Batch decoder_mask:", decoder_mask.shape)
+        import sys
+        sys.exit()
+        # -------------------
 
         labels = batch["label"].to(device)
 
@@ -388,11 +388,6 @@ def main():
         num_workers=2,
         pin_memory=(device.type == "cuda")
     )
-
-    # Debug validation loader (This will print during setup)
-    for batch in val_loader:
-        print("Batch Keys (from Val Loader test):", batch.keys())
-        break
 
     # ------------------------------------------------------
     # 6. Resume Training
