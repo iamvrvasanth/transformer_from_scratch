@@ -244,8 +244,8 @@ def train_one_epoch(
     # ---------------------------------------------
     # Move Batch to Device
     # ---------------------------------------------
-    print("\n========== VALIDATION BATCH ==========")
-    print(batch.keys())
+        print("\n========== VALIDATION BATCH ==========")
+        print(batch.keys())
 
     for key, value in batch.items():
         if torch.is_tensor(value):
