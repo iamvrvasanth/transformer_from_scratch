@@ -38,7 +38,6 @@ class MultiHeadAttention(nn.Module):
         Output:
             (batch_size, num_heads, seq_len, head_dim)
         """
-
         batch_size, seq_len, _ = x.shape
 
         x = x.view(
@@ -58,8 +57,6 @@ class MultiHeadAttention(nn.Module):
         Output:
             (batch_size, seq_len, d_model)
         """
-        
-        print("combine_heads input:", x.shape)
         batch_size, num_heads, seq_len, head_dim = x.shape
 
         x = x.transpose(1, 2).contiguous()
@@ -83,7 +80,6 @@ class MultiHeadAttention(nn.Module):
         Q, K, V:
             (batch_size, num_heads, seq_len, head_dim)
         """
-
         scores = torch.matmul(
             Q,
             K.transpose(-2, -1)
@@ -92,26 +88,16 @@ class MultiHeadAttention(nn.Module):
         scores = scores / math.sqrt(self.head_dim)
 
         if mask is not None:
-
             mask = mask.bool()
 
             # -----------------------------------
             # Correct mask dimensions
             # -----------------------------------
-
             if mask.dim() == 2:
-                # (B, L)
-                mask = mask.unsqueeze(1).unsqueeze(2)
-
+                mask = mask[:, None, None, :]
             elif mask.dim() == 3:
-                # (B, L, L)
-                mask = mask.unsqueeze(1)
-
-            elif mask.dim() == 4:
-                # Already correct
-                pass
-
-            else:
+                mask = mask[:, None, :, :]
+            elif mask.dim() != 4:
                 raise ValueError(
                     f"Invalid mask shape: {mask.shape}"
                 )
@@ -142,7 +128,6 @@ class MultiHeadAttention(nn.Module):
         value,
         mask=None
     ):
-
         # Linear projections
         Q = self.W_q(query)
         K = self.W_k(key)
