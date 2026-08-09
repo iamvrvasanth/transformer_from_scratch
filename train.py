@@ -72,6 +72,14 @@ os.makedirs(
 # ==========================================================
 
 model = Transformer().to(device)
+model = model.to(device)
+
+# ------------------------------------------
+# Multi GPU
+# ------------------------------------------
+if torch.cuda.device_count() > 1:
+    print(f"Using {torch.cuda.device_count()} GPUs")
+    model = torch.nn.DataParallel(model)
 
 
 # ==========================================================
@@ -106,10 +114,9 @@ criterion = nn.CrossEntropyLoss(
 # Mixed Precision
 # ==========================================================
 
-scaler = torch.cuda.amp.GradScaler(
-
-    enabled=torch.cuda.is_available()
-
+scaler = torch.amp.GradScaler(
+    "cuda",
+    enabled=(device.type == "cuda")
 )
 
 
@@ -149,15 +156,21 @@ def save_checkpoint(
 
     )
 
-    torch.save(
-
-        checkpoint,
-
-        save_path
-
+   model_state = (
+    model.module.state_dict()
+    if isinstance(model, torch.nn.DataParallel)
+    else model.state_dict()
     )
 
-    print(f"\nCheckpoint Saved : {save_path}")
+    torch.save(
+    {
+        "epoch": epoch,
+        "model_state_dict": model_state,
+        "optimizer_state_dict": optimizer.state_dict(),
+        "loss": loss
+    },
+    save_path
+    )
 
 
 # ==========================================================
@@ -198,10 +211,13 @@ def load_checkpoint(
 
     )
 
-    model.load_state_dict(
-
+    if isinstance(model, torch.nn.DataParallel):
+        model.module.load_state_dict(
         checkpoint["model_state_dict"]
-
+    )
+    else:
+        model.load_state_dict(
+        checkpoint["model_state_dict"]
     )
 
     optimizer.load_state_dict(
@@ -261,8 +277,9 @@ def train_one_epoch(
         # ---------------------------------------------
         # Mixed Precision Forward
         # ---------------------------------------------
-        with torch.cuda.amp.autocast(
-            enabled=torch.cuda.is_available()
+       with torch.amp.autocast(
+        device_type=device.type,
+        enabled=(device.type == "cuda")
         ):
 
             outputs = model(
@@ -455,7 +472,12 @@ def save_best_model(
 
             "epoch": epoch,
 
-            "model_state_dict": model.state_dict(),
+            "model_state_dict":
+                (
+                model.module.state_dict()
+                if isinstance(model, torch.nn.DataParallel)
+                else model.state_dict()
+            )
 
             "optimizer_state_dict": optimizer.state_dict(),
 
@@ -564,6 +586,10 @@ def main():
     num_workers=2,
     pin_memory=(device.type == "cuda")
     )
+# Debug validation loader
+    for batch in val_loader:
+    print("Batch Keys:", batch.keys())
+    break
 
     # ------------------------------------------------------
     # Resume Training
