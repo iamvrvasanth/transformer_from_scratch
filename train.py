@@ -116,13 +116,6 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
 
         encoder_mask = batch["encoder_mask"].to(device)
         decoder_mask = batch["decoder_mask"].to(device)
-        
-        # --- DEBUG BLOCK ---
-        print("\nBatch encoder_mask:", encoder_mask.shape)
-        print("Batch decoder_mask:", decoder_mask.shape)
-        import sys
-        sys.exit()
-        # -------------------
 
         labels = batch["label"].to(device)
 
@@ -373,11 +366,12 @@ def main():
         eos_idx=Config.EOS_IDX
     )
 
+    # NUM_WORKERS SET TO 0 HERE
     train_loader = DataLoader(
         train_dataset,
         batch_size=Config.BATCH_SIZE,
         shuffle=True,
-        num_workers=2,
+        num_workers=0,
         pin_memory=(device.type == "cuda")
     )
 
@@ -385,7 +379,7 @@ def main():
         val_dataset,
         batch_size=Config.BATCH_SIZE,
         shuffle=False,
-        num_workers=2,
+        num_workers=0,
         pin_memory=(device.type == "cuda")
     )
 
