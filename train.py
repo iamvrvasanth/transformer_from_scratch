@@ -12,7 +12,7 @@ import random
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.optim import Adam
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -31,65 +31,6 @@ def set_seed(seed=42):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
-
-# ==========================================================
-# Device
-# ==========================================================
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using Device : {device}")
-
-
-# ==========================================================
-# Create Checkpoint Folder
-# ==========================================================
-os.makedirs(Config.CHECKPOINT_DIR, exist_ok=True)
-
-
-# ==========================================================
-# Initialize Model
-# ==========================================================
-model = Transformer().to(device)
-
-# ------------------------------------------
-# Multi GPU
-# ------------------------------------------
-if torch.cuda.device_count() > 1:
-    print(f"Using {torch.cuda.device_count()} GPUs")
-    model = torch.nn.DataParallel(model)
-
-
-# ==========================================================
-# Optimizer
-# ==========================================================
-optimizer = torch.optim.AdamW(
-    model.parameters(),
-    lr=Config.LEARNING_RATE,
-    weight_decay=Config.WEIGHT_DECAY
-)
-
-scheduler = torch.optim.lr_scheduler.LambdaLR(
-    optimizer,
-    lr_lambda=lambda step: 1.0
-)
-
-
-# ==========================================================
-# Loss Function
-# ==========================================================
-criterion = nn.CrossEntropyLoss(
-    ignore_index=Config.PAD_IDX,
-    label_smoothing=Config.LABEL_SMOOTHING
-)
-
-
-# ==========================================================
-# Mixed Precision
-# ==========================================================
-scaler = torch.amp.GradScaler(
-    "cuda",
-    enabled=(device.type == "cuda")
-)
 
 
 # ==========================================================
@@ -123,11 +64,11 @@ def save_checkpoint(epoch, model, optimizer, loss):
 # ==========================================================
 # Load Checkpoint
 # ==========================================================
-def load_checkpoint(model, optimizer):
+def load_checkpoint(model, optimizer, device):
     checkpoint_path = os.path.join(Config.CHECKPOINT_DIR, Config.MODEL_NAME)
 
     if not os.path.exists(checkpoint_path):
-        print("No checkpoint found.")
+        print("No checkpoint found. Starting from scratch.")
         return 0
 
     checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -138,9 +79,33 @@ def load_checkpoint(model, optimizer):
         model.load_state_dict(checkpoint["model_state_dict"])
 
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-    print(f"Checkpoint Loaded (Epoch {checkpoint['epoch']})")
+    print(f"Checkpoint Loaded (Resuming from Epoch {checkpoint['epoch'] + 1})")
 
     return checkpoint["epoch"] + 1
+
+
+# ==========================================================
+# Save Best Model
+# ==========================================================
+def save_best_model(model, optimizer, epoch, val_loss, best_loss):
+    if val_loss < best_loss:
+        checkpoint = {
+            "epoch": epoch,
+            "model_state_dict": (
+                model.module.state_dict()
+                if isinstance(model, torch.nn.DataParallel)
+                else model.state_dict()
+            ),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "validation_loss": val_loss
+        }
+
+        save_path = os.path.join(Config.CHECKPOINT_DIR, "best_model.pt")
+        torch.save(checkpoint, save_path)
+        print(f"\nBest Model Saved (Validation Loss = {val_loss:.4f})")
+        return val_loss
+
+    return best_loss
 
 
 # ==========================================================
@@ -153,18 +118,6 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
     progress_bar = tqdm(dataloader, desc="Training", leave=False)
 
     for batch in progress_bar:
-        # ---------------------------------------------
-        # Move Batch to Device
-        # ---------------------------------------------
-        # print("\n========== VALIDATION BATCH ==========")
-        # print(batch.keys())
-        # for key, value in batch.items():
-        #     if torch.is_tensor(value):
-        #         print(f"{key}: {value.shape}")
-        #     else:
-        #         print(f"{key}: {type(value)}")
-        # print("======================================")
-
         encoder_input = batch["encoder_input"].to(device)
         decoder_input = batch["decoder_input"].to(device)
 
@@ -173,14 +126,10 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
 
         labels = batch["label"].to(device)
 
-        # ---------------------------------------------
         # Zero Gradients
-        # ---------------------------------------------
         optimizer.zero_grad(set_to_none=True)
 
-        # ---------------------------------------------
         # Mixed Precision Forward
-        # ---------------------------------------------
         with torch.amp.autocast(
             device_type=device.type,
             enabled=(device.type == "cuda")
@@ -197,26 +146,18 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
                 labels.view(-1)
             )
 
-        # ---------------------------------------------
         # Backpropagation
-        # ---------------------------------------------
         scaler.scale(loss).backward()
 
-        # ---------------------------------------------
         # Gradient Clipping
-        # ---------------------------------------------
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
-        # ---------------------------------------------
         # Optimizer Step
-        # ---------------------------------------------
         scaler.step(optimizer)
         scaler.update()
 
-        # ---------------------------------------------
         # Statistics
-        # ---------------------------------------------
         total_loss += loss.item()
         progress_bar.set_postfix(loss=f"{loss.item():.4f}")
 
@@ -228,14 +169,6 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
 # Validate One Epoch
 # ==========================================================
 def validate_one_epoch(model, dataloader, criterion, device):
-    """
-    Validate the model for one epoch.
-
-    Returns
-    -------
-    avg_loss : float
-    accuracy : float
-    """
     model.eval()
     total_loss = 0.0
 
@@ -246,9 +179,6 @@ def validate_one_epoch(model, dataloader, criterion, device):
 
     with torch.no_grad():
         for batch in progress_bar:
-            # ---------------------------------------------
-            # Move Batch to Device
-            # ---------------------------------------------
             encoder_input = batch["encoder_input"].to(device)
             decoder_input = batch["decoder_input"].to(device)
 
@@ -257,9 +187,6 @@ def validate_one_epoch(model, dataloader, criterion, device):
 
             labels = batch["label"].to(device)
 
-            # ---------------------------------------------
-            # Forward Pass
-            # ---------------------------------------------
             with torch.amp.autocast(
                 device_type=device.type,
                 enabled=(device.type == "cuda")
@@ -278,12 +205,8 @@ def validate_one_epoch(model, dataloader, criterion, device):
 
             total_loss += loss.item()
 
-            # ---------------------------------------------
-            # Prediction
-            # ---------------------------------------------
+            # Predictions & Accuracy
             predictions = outputs.argmax(dim=-1)
-
-            # Ignore PAD Tokens
             valid_mask = labels != Config.PAD_IDX
 
             correct_tokens += ((predictions == labels) & valid_mask).sum().item()
@@ -298,55 +221,41 @@ def validate_one_epoch(model, dataloader, criterion, device):
 
 
 # ==========================================================
-# Save Best Model
-# ==========================================================
-def save_best_model(model, optimizer, epoch, val_loss, best_loss):
-    if val_loss < best_loss:
-        checkpoint = {
-            "epoch": epoch,
-            "model_state_dict": (
-                model.module.state_dict()
-                if isinstance(model, torch.nn.DataParallel)
-                else model.state_dict()
-            ), # Fixed missing comma here
-            "optimizer_state_dict": optimizer.state_dict(),
-            "validation_loss": val_loss
-        }
-
-        save_path = os.path.join(Config.CHECKPOINT_DIR, "best_model.pt")
-        torch.save(checkpoint, save_path)
-        print(f"\nBest Model Saved (Validation Loss = {val_loss:.4f})")
-        return val_loss
-
-    return best_loss
-
-
-# ==========================================================
 # Main Training Function
 # ==========================================================
 def main():
     set_seed(Config.SEED)
 
-    # ------------------------------------------------------
-    # Replace these placeholders with actual dataset loading
-    # ------------------------------------------------------
-    print("Loading OPUS Books dataset...")
+    # 1. Setup Device & Directories
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using Device : {device}")
 
+    os.makedirs(Config.CHECKPOINT_DIR, exist_ok=True)
+
+    # 2. Load Raw Dataset
+    print("Loading OPUS Books dataset...")
     raw_dataset = load_dataset("opus_books", "en-fr", split="train")
     print("Total samples:", len(raw_dataset))
 
     split = raw_dataset.train_test_split(test_size=0.1, seed=42)
-
     train_raw = split["train"]
     val_raw = split["test"]
 
-    print("Train:", len(train_raw))
-    print("Validation:", len(val_raw))
-    print("Loading tokenizers...")
+    print("Train samples:", len(train_raw))
+    print("Validation samples:", len(val_raw))
 
+    # 3. Load Tokenizers & Get Vocabulary Sizes
+    print("Loading tokenizers...")
     src_tokenizer = Tokenizer.from_file(Config.SRC_TOKENIZER_PATH)
     tgt_tokenizer = Tokenizer.from_file(Config.TGT_TOKENIZER_PATH)
 
+    src_vocab_size = src_tokenizer.get_vocab_size()
+    tgt_vocab_size = tgt_tokenizer.get_vocab_size()
+
+    print(f"Source Vocabulary Size: {src_vocab_size}")
+    print(f"Target Vocabulary Size: {tgt_vocab_size}")
+
+    # 4. Prepare PyTorch Datasets & DataLoaders
     train_dataset = TranslationDataset(
         dataset=train_raw,
         src_tokenizer=src_tokenizer,
@@ -387,22 +296,40 @@ def main():
         pin_memory=(device.type == "cuda")
     )
 
-    # Debug validation loader
-    for batch in val_loader:
-        print("Batch Keys:", batch.keys())
-        break
+    # 5. Initialize Model
+    model = Transformer(
+        src_vocab_size=src_vocab_size,
+        tgt_vocab_size=tgt_vocab_size
+    ).to(device)
 
-    # ------------------------------------------------------
-    # Resume Training
-    # ------------------------------------------------------
-    start_epoch = load_checkpoint(model, optimizer)
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs with DataParallel")
+        model = torch.nn.DataParallel(model)
+
+    # 6. Initialize Optimizer, Criterion, and Scaler
+    optimizer = AdamW(
+        model.parameters(),
+        lr=Config.LEARNING_RATE,
+        weight_decay=Config.WEIGHT_DECAY
+    )
+
+    criterion = nn.CrossEntropyLoss(
+        ignore_index=Config.PAD_IDX,
+        label_smoothing=Config.LABEL_SMOOTHING
+    )
+
+    scaler = torch.amp.GradScaler(
+        "cuda",
+        enabled=(device.type == "cuda")
+    )
+
+    # 7. Resume Training if Checkpoint Exists
+    start_epoch = load_checkpoint(model, optimizer, device)
     best_val_loss = float("inf")
 
-    # ------------------------------------------------------
-    # Training Loop
-    # ------------------------------------------------------
+    # 8. Training Loop
     for epoch in range(start_epoch, Config.EPOCHS):
-        print("=" * 60)
+        print("\n" + "=" * 60)
         print(f"Epoch {epoch+1}/{Config.EPOCHS}")
         print("=" * 60)
 
@@ -422,13 +349,14 @@ def main():
             device
         )
 
-        print()
-        print(f"Train Loss      : {train_loss:.4f}")
+        print(f"\nTrain Loss      : {train_loss:.4f}")
         print(f"Validation Loss : {val_loss:.4f}")
         print(f"Token Accuracy  : {val_accuracy*100:.2f}%")
 
+        # Save Last Checkpoint
         save_checkpoint(epoch, model, optimizer, train_loss)
 
+        # Save Best Model Checkpoint
         best_val_loss = save_best_model(
             model,
             optimizer,
@@ -437,7 +365,7 @@ def main():
             best_val_loss
         )
 
-    print("\nTraining Finished Successfully")
+    print("\nTraining Finished Successfully!")
 
 
 # ==========================================================
