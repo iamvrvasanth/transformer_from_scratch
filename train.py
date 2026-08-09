@@ -111,8 +111,8 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
         # ---------------------------------------------
         # DEBUGGING STEP: Check what DataLoader receives
         # ---------------------------------------------
-        print(batch.keys())
-        sys.exit()  # Exits the script immediately after printing the keys
+        
+         # Exits the script immediately after printing the keys
         # ---------------------------------------------
 
         # ---------------------------------------------
