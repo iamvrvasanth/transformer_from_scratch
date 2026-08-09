@@ -47,100 +47,99 @@ class TranslationDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
+        try:
+            sample = self.dataset[idx]
+            translation = sample["translation"]
 
-        sample = self.dataset[idx]
-        translation = sample["translation"]
+            src_text = translation[self.src_lang]
+            tgt_text = translation[self.tgt_lang]
 
-        src_text = translation[self.src_lang]
-        tgt_text = translation[self.tgt_lang]
+            # -----------------------------------
+            # Tokenize
+            # -----------------------------------
+            src_tokens = self.src_tokenizer.encode(src_text).ids
+            tgt_tokens = self.tgt_tokenizer.encode(tgt_text).ids
 
-        # -----------------------------------
-        # Tokenize
-        # -----------------------------------
-        src_tokens = self.src_tokenizer.encode(src_text).ids
-        tgt_tokens = self.tgt_tokenizer.encode(tgt_text).ids
+            # -----------------------------------
+            # Encoder Input
+            # <BOS> sentence <EOS>
+            # -----------------------------------
+            encoder_input = (
+                [self.bos_idx]
+                + src_tokens
+                + [self.eos_idx]
+            )
 
-        # -----------------------------------
-        # Encoder Input
-        # <BOS> sentence <EOS>
-        # -----------------------------------
-        encoder_input = (
-            [self.bos_idx]
-            + src_tokens
-            + [self.eos_idx]
-        )
+            # -----------------------------------
+            # Decoder Input
+            # <BOS> sentence
+            # -----------------------------------
+            decoder_input = (
+                [self.bos_idx]
+                + tgt_tokens
+            )
 
-        # -----------------------------------
-        # Decoder Input
-        # <BOS> sentence
-        # -----------------------------------
-        decoder_input = (
-            [self.bos_idx]
-            + tgt_tokens
-        )
+            # -----------------------------------
+            # Label
+            # sentence <EOS>
+            # -----------------------------------
+            label = (
+                tgt_tokens
+                + [self.eos_idx]
+            )
 
-        # -----------------------------------
-        # Label
-        # sentence <EOS>
-        # -----------------------------------
-        label = (
-            tgt_tokens
-            + [self.eos_idx]
-        )
+            # -----------------------------------
+            # Truncate
+            # -----------------------------------
+            encoder_input = encoder_input[:self.max_seq_len]
+            decoder_input = decoder_input[:self.max_seq_len]
+            label = label[:self.max_seq_len]
 
-        # -----------------------------------
-        # Truncate
-        # -----------------------------------
-        encoder_input = encoder_input[:self.max_seq_len]
-        decoder_input = decoder_input[:self.max_seq_len]
-        label = label[:self.max_seq_len]
+            # -----------------------------------
+            # Pad
+            # -----------------------------------
+            encoder_input += [self.pad_idx] * (self.max_seq_len - len(encoder_input))
+            decoder_input += [self.pad_idx] * (self.max_seq_len - len(decoder_input))
+            label += [self.pad_idx] * (self.max_seq_len - len(label))
 
-        # -----------------------------------
-        # Pad
-        # -----------------------------------
-        encoder_input += [self.pad_idx] * (self.max_seq_len - len(encoder_input))
-        decoder_input += [self.pad_idx] * (self.max_seq_len - len(decoder_input))
-        label += [self.pad_idx] * (self.max_seq_len - len(label))
+            # -----------------------------------
+            # Convert to Tensor
+            # -----------------------------------
+            encoder_input = torch.tensor(encoder_input, dtype=torch.long)
+            decoder_input = torch.tensor(decoder_input, dtype=torch.long)
+            label = torch.tensor(label, dtype=torch.long)
 
-        # -----------------------------------
-        # Convert to Tensor
-        # -----------------------------------
-        encoder_input = torch.tensor(encoder_input, dtype=torch.long)
-        decoder_input = torch.tensor(decoder_input, dtype=torch.long)
-        label = torch.tensor(label, dtype=torch.long)
-
-        # -----------------------------------
-        # Create Masks
-        # -----------------------------------
-        encoder_mask = create_padding_mask(
-            encoder_input,
-            self.pad_idx
-        )
-        
-        decoder_mask = create_target_mask(
-            decoder_input,
-            self.pad_idx
-        )
-
-        # --- DEBUG BLOCK ---
-        print("Dataset encoder_mask:", encoder_mask.shape)
-        print("Dataset decoder_mask:", decoder_mask.shape)
-        import sys
-        sys.exit()
-        # -------------------
-
-        # -----------------------------------
-        # Return Dictionary
-        # -----------------------------------
-        return {
-            "encoder_input": encoder_input,
-            "decoder_input": decoder_input,
+            # -----------------------------------
+            # Create Masks
+            # -----------------------------------
+            encoder_mask = create_padding_mask(
+                encoder_input,
+                self.pad_idx
+            )
             
-            "encoder_mask": encoder_mask,
-            "decoder_mask": decoder_mask,
-            
-            "label": label,
-            
-            "src_text": src_text,
-            "tgt_text": tgt_text
-        }
+            decoder_mask = create_target_mask(
+                decoder_input,
+                self.pad_idx
+            )
+
+            # -----------------------------------
+            # Return Dictionary
+            # -----------------------------------
+            return {
+                "encoder_input": encoder_input,
+                "decoder_input": decoder_input,
+                
+                "encoder_mask": encoder_mask,
+                "decoder_mask": decoder_mask,
+                
+                "label": label,
+                
+                "src_text": src_text,
+                "tgt_text": tgt_text
+            }
+
+        except Exception as e:
+            print(f"\nERROR IN DATASET at idx {idx}:", e)
+            import traceback
+            traceback.print_exc()
+            raise
