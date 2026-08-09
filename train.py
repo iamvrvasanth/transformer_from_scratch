@@ -156,21 +156,21 @@ def save_checkpoint(
 
     )
 
-   model_state = (
-    model.module.state_dict()
-    if isinstance(model, torch.nn.DataParallel)
-    else model.state_dict()
-    )
-
-    torch.save(
-    {
-        "epoch": epoch,
-        "model_state_dict": model_state,
-        "optimizer_state_dict": optimizer.state_dict(),
-        "loss": loss
-    },
-    save_path
-    )
+       model_state = (
+        model.module.state_dict()
+        if isinstance(model, torch.nn.DataParallel)
+        else model.state_dict()
+        )
+    
+        torch.save(
+        {
+            "epoch": epoch,
+            "model_state_dict": model_state,
+            "optimizer_state_dict": optimizer.state_dict(),
+            "loss": loss
+        },
+        save_path
+        )
 
 
 # ==========================================================
