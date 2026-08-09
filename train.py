@@ -93,19 +93,13 @@ def train_one_epoch(model, dataloader, optimizer, criterion, scaler, device):
     total_loss = 0.0
     progress_bar = tqdm(dataloader, desc="Training", leave=False)
 
-    for i, batch in enumerate(progress_bar):
+    for batch in progress_bar:
         
         encoder_input = batch["encoder_input"].to(device)
         decoder_input = batch["decoder_input"].to(device)
         encoder_mask = batch["encoder_mask"].to(device)
         decoder_mask = batch["decoder_mask"].to(device)
         labels = batch["label"].to(device)
-
-        # --- DIAGNOSTIC PRINT (First batch only) ---
-        if i == 0:
-            print(f"\nEncoder Input Device: {encoder_input.device}")
-            print(f"Labels Device: {labels.device}\n")
-        # -------------------------------------------
 
         optimizer.zero_grad(set_to_none=True)
 
@@ -232,18 +226,12 @@ def main():
         tgt_vocab_size=tgt_vocab_size
     ).to(device)
 
-    # --- DIAGNOSTIC PRINTS BEFORE TRAINING ---
-    print("\n================ DIAGNOSTICS ================")
-    print(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
-    print(f"torch.cuda.device_count(): {torch.cuda.device_count()}")
-    print(f"next(model.parameters()).device: {next(model.parameters()).device}")
-    print("=============================================\n")
-    # -----------------------------------------
-
-    # Uncomment this if you want to resume Multi-GPU training
-    # if torch.cuda.device_count() > 1:
-    #     print(f"Using {torch.cuda.device_count()} GPUs")
-    #     model = torch.nn.DataParallel(model)
+    # ------------------------------------------------------
+    # Multi GPU setup
+    # ------------------------------------------------------
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs")
+        model = torch.nn.DataParallel(model)
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
