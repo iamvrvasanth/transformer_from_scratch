@@ -128,6 +128,12 @@ class MultiHeadAttention(nn.Module):
         value,
         mask=None
     ):
+        print("=" * 60)
+        print("Attention received mask shape:", mask.shape if mask is not None else None)
+        print("=" * 60)
+        import sys
+        sys.exit()
+
         # Linear projections
         Q = self.W_q(query)
         K = self.W_k(key)
