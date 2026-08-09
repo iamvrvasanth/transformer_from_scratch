@@ -125,44 +125,27 @@ scaler = torch.amp.GradScaler(
 # ==========================================================
 
 def save_checkpoint(
-
-        epoch,
-
-        model,
-
-        optimizer,
-
-        loss
-
+    epoch,
+    model,
+    optimizer,
+    loss
 ):
-
-    checkpoint = {
-
-        "epoch": epoch,
-
-        "model_state_dict": model.state_dict(),
-
-        "optimizer_state_dict": optimizer.state_dict(),
-
-        "loss": loss
-
-    }
+    """
+    Save model checkpoint.
+    """
 
     save_path = os.path.join(
-
         Config.CHECKPOINT_DIR,
-
         Config.MODEL_NAME
-
     )
 
-       model_state = (
+    model_state = (
         model.module.state_dict()
         if isinstance(model, torch.nn.DataParallel)
         else model.state_dict()
-        )
-    
-        torch.save(
+    )
+
+    torch.save(
         {
             "epoch": epoch,
             "model_state_dict": model_state,
@@ -170,9 +153,9 @@ def save_checkpoint(
             "loss": loss
         },
         save_path
-        )
+    )
 
-
+    print(f"Checkpoint saved to {save_path}")
 # ==========================================================
 # Load Checkpoint
 # ==========================================================
