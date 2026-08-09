@@ -159,6 +159,12 @@ class Transformer(nn.Module):
         tgt_mask=None
     ):
 
+        # --- DEBUG BLOCK ---
+        print("Transformer src_mask:", src_mask.shape if src_mask is not None else None)
+        import sys
+        sys.exit()
+        # -------------------
+
         encoder_output = self.encode(
             src,
             src_mask
