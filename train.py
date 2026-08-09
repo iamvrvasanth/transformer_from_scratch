@@ -241,63 +241,52 @@ def train_one_epoch(
 
     for batch in progress_bar:
 
-        # ---------------------------------------------
-        # Move Batch to Device
-        # ---------------------------------------------
-        print("\n========== VALIDATION BATCH ==========")
-        print(batch.keys())
-    
-        for key, value in batch.items():
-            if torch.is_tensor(value):
-                print(f"{key}: {value.shape}")
-            else:
-                print(f"{key}: {type(value)}")
-    
-        print("======================================")
-    
-        encoder_input = batch["encoder_input"].to(device)
-        decoder_input = batch["decoder_input"].to(device)
-    
-        encoder_mask = batch["encoder_mask"].to(device)
-        decoder_mask = batch["decoder_mask"].to(device)
-    
-        labels = batch["label"].to(device)
+    # ---------------------------------------------
+    # Move Batch to Device
+    # ---------------------------------------------
+    print("\n========== VALIDATION BATCH ==========")
+    print(batch.keys())
 
-        # ---------------------------------------------
-        # Zero Gradients
-        # ---------------------------------------------
-        optimizer.zero_grad(set_to_none=True)
+    for key, value in batch.items():
+        if torch.is_tensor(value):
+            print(f"{key}: {value.shape}")
+        else:
+            print(f"{key}: {type(value)}")
 
-        # ---------------------------------------------
-        # Mixed Precision Forward
-        # ---------------------------------------------
-       with torch.amp.autocast(
+    print("======================================")
+
+    encoder_input = batch["encoder_input"].to(device)
+    decoder_input = batch["decoder_input"].to(device)
+
+    encoder_mask = batch["encoder_mask"].to(device)
+    decoder_mask = batch["decoder_mask"].to(device)
+
+    labels = batch["label"].to(device)
+
+    # ---------------------------------------------
+    # Zero Gradients
+    # ---------------------------------------------
+    optimizer.zero_grad(set_to_none=True)
+
+    # ---------------------------------------------
+    # Mixed Precision Forward
+    # ---------------------------------------------
+    with torch.amp.autocast(
         device_type=device.type,
         enabled=(device.type == "cuda")
-        ):
+    ):
 
-            outputs = model(
+        outputs = model(
+            src=encoder_input,
+            tgt=decoder_input,
+            src_mask=encoder_mask,
+            tgt_mask=decoder_mask
+        )
 
-                src=encoder_input,
-
-                tgt=decoder_input,
-
-                src_mask=encoder_mask,
-
-                tgt_mask=decoder_mask
-
-            )
-
-            loss = criterion(
-
-                outputs.view(
-                    -1,
-                    outputs.size(-1)
-                ),
-
-                labels.view(-1)
-
-            )
+        loss = criterion(
+            outputs.view(-1, outputs.size(-1)),
+            labels.view(-1)
+        )
 
         # ---------------------------------------------
         # Backpropagation
