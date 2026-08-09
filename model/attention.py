@@ -101,6 +101,12 @@ class MultiHeadAttention(nn.Module):
                 raise ValueError(
                     f"Invalid mask shape: {mask.shape}"
                 )
+            
+            # --- DEBUG PRINTS ---
+            print("Q:", Q.shape)
+            print("Scores:", scores.shape)
+            print("Mask:", mask.shape)
+            # --------------------
 
             scores = scores.masked_fill(
                 ~mask,
@@ -128,12 +134,6 @@ class MultiHeadAttention(nn.Module):
         value,
         mask=None
     ):
-        print("=" * 60)
-        print("Attention received mask shape:", mask.shape if mask is not None else None)
-        print("=" * 60)
-        import sys
-        sys.exit()
-
         # Linear projections
         Q = self.W_q(query)
         K = self.W_k(key)
