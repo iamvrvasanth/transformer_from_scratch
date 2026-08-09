@@ -9,6 +9,11 @@ Author: Transformer From Scratch
 import torch
 from torch.utils.data import Dataset
 
+from model.masks import (
+    create_padding_mask,
+    create_target_mask
+)
+
 
 class TranslationDataset(Dataset):
 
@@ -24,7 +29,6 @@ class TranslationDataset(Dataset):
         bos_idx=1,
         eos_idx=2
     ):
-
         self.dataset = dataset
 
         self.src_tokenizer = src_tokenizer
@@ -54,7 +58,6 @@ class TranslationDataset(Dataset):
         # -----------------------------------
         # Tokenize
         # -----------------------------------
-
         src_tokens = self.src_tokenizer.encode(
             src_text
         ).ids
@@ -67,7 +70,6 @@ class TranslationDataset(Dataset):
         # Encoder Input
         # <BOS> sentence <EOS>
         # -----------------------------------
-
         encoder_input = (
             [self.bos_idx]
             + src_tokens
@@ -78,7 +80,6 @@ class TranslationDataset(Dataset):
         # Decoder Input
         # <BOS> sentence
         # -----------------------------------
-
         decoder_input = (
             [self.bos_idx]
             + tgt_tokens
@@ -88,7 +89,6 @@ class TranslationDataset(Dataset):
         # Label
         # sentence <EOS>
         # -----------------------------------
-
         label = (
             tgt_tokens
             + [self.eos_idx]
@@ -97,7 +97,6 @@ class TranslationDataset(Dataset):
         # -----------------------------------
         # Truncate
         # -----------------------------------
-
         encoder_input = encoder_input[:self.max_seq_len]
         decoder_input = decoder_input[:self.max_seq_len]
         label = label[:self.max_seq_len]
@@ -105,7 +104,6 @@ class TranslationDataset(Dataset):
         # -----------------------------------
         # Pad
         # -----------------------------------
-
         encoder_input += [
             self.pad_idx
         ] * (self.max_seq_len - len(encoder_input))
@@ -121,7 +119,6 @@ class TranslationDataset(Dataset):
         # -----------------------------------
         # Convert to Tensor
         # -----------------------------------
-
         encoder_input = torch.tensor(
             encoder_input,
             dtype=torch.long
@@ -137,16 +134,25 @@ class TranslationDataset(Dataset):
             dtype=torch.long
         )
 
+        # -----------------------------------
+        # Create Masks
+        # -----------------------------------
+        encoder_mask = create_padding_mask(
+            encoder_input,
+            self.pad_idx
+        )
+        
+        decoder_mask = create_target_mask(
+            decoder_input,
+            self.pad_idx
+        )
+
         return {
-
             "encoder_input": encoder_input,
-
             "decoder_input": decoder_input,
-
+            "encoder_mask": encoder_mask,
+            "decoder_mask": decoder_mask,
             "label": label,
-
             "src_text": src_text,
-
             "tgt_text": tgt_text
-
         }
