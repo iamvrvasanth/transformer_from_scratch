@@ -122,6 +122,13 @@ class TranslationDataset(Dataset):
             self.pad_idx
         )
 
+        # --- DEBUG BLOCK ---
+        print("Dataset encoder_mask:", encoder_mask.shape)
+        print("Dataset decoder_mask:", decoder_mask.shape)
+        import sys
+        sys.exit()
+        # -------------------
+
         # -----------------------------------
         # Return Dictionary
         # -----------------------------------
