@@ -58,7 +58,8 @@ class MultiHeadAttention(nn.Module):
         Output:
             (batch_size, seq_len, d_model)
         """
-
+        
+        print("combine_heads input:", x.shape)
         batch_size, num_heads, seq_len, head_dim = x.shape
 
         x = x.transpose(1, 2).contiguous()
@@ -92,11 +93,28 @@ class MultiHeadAttention(nn.Module):
 
         if mask is not None:
 
-            if mask.dtype != torch.bool:
-                mask = mask.bool()
+            mask = mask.bool()
 
-            while mask.dim() < scores.dim():
+            # -----------------------------------
+            # Correct mask dimensions
+            # -----------------------------------
+
+            if mask.dim() == 2:
+                # (B, L)
+                mask = mask.unsqueeze(1).unsqueeze(2)
+
+            elif mask.dim() == 3:
+                # (B, L, L)
                 mask = mask.unsqueeze(1)
+
+            elif mask.dim() == 4:
+                # Already correct
+                pass
+
+            else:
+                raise ValueError(
+                    f"Invalid mask shape: {mask.shape}"
+                )
 
             scores = scores.masked_fill(
                 ~mask,
