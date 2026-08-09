@@ -47,12 +47,6 @@ class EncoderLayer(nn.Module):
         x,
         src_mask=None
     ):
-        # --- DEBUG BLOCK ---
-        print("Encoder received mask:", src_mask.shape if src_mask is not None else None)
-        import sys
-        sys.exit()
-        # -------------------
-
         # Residual Block 1
         x = self.residual_connections[0](
             x,
@@ -104,11 +98,12 @@ class Encoder(nn.Module):
         x,
         src_mask=None
     ):
-
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
+            print(f"Encoder Layer {i} Start")
             x = layer(
                 x,
                 src_mask
             )
+            print(f"Encoder Layer {i} End")
 
         return self.norm(x)
